@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d18">
+  <title>JARVIS | Asistente personal</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      color-scheme: dark;
+      --bg: #080d18;
+      --panel: #101a2b;
+      --blue: #36cfff;
+      --text: #eaf6ff;
+      --muted: #8da5bb;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at top, #142b48, var(--bg) 60%);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 20px;
+      border-bottom: 1px solid #263d55;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 46px;
+      height: 46px;
+      border: 2px solid var(--blue);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--blue);
+      font-size: 22px;
+      box-shadow: 0 0 22px #36cfff33;
+    }
+
+    h1 { margin: 0; letter-spacing: 4px; font-size: 23px; }
+    .subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .status { margin-left: auto; color: #7ef5b0; font-size: 12px; }
+
+    main {
+      width: min(850px, 100%);
+      margin: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .welcome { text-align: center; margin: 22px 0; }
+    .orb {
+      width: 94px;
+      height: 94px;
+      margin: auto auto 18px;
+      border-radius: 50%;
+      border: 1px solid var(--blue);
+      display: grid;
+      place-items: center;
+      color: var(--blue);
+      font-size: 35px;
+      box-shadow: 0 0 38px #36cfff20, inset 0 0 30px #36cfff12;
+    }
+
+    .welcome h2 { font-weight: 400; margin: 0 0 8px; }
+    .welcome p { color: var(--muted); margin: 0; }
+
+    #messages {
+      flex: 1;
+      min-height: 180px;
+      max-height: 48vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 8px 0 20px;
+    }
+
+    .message {
+      padding: 14px 16px;
+      border: 1px solid #263d55;
+      background: var(--panel);
+      border-radius: 14px;
+      max-width: 90%;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .user { align-self: flex-end; border-color: #247da0; background: #10283b; }
+    .jarvis { align-self: flex-start; }
+
+    form {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid #2c4b66;
+      border-radius: 18px;
+      background: #0b1422;
+    }
+
+    input {
+      min-width: 0;
+      flex: 1;
+      background: transparent;
+      color: var(--text);
+      border: 0;
+      outline: none;
+      font: inherit;
+      padding: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 18px;
+      background: var(--blue);
+      color: #06111b;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: .5; cursor: wait; }
+    #hint { color: var(--muted); text-align: center; font-size: 11px; margin: 12px 0; }
+    footer { text-align: center; color: #60788e; font-size: 11px; padding: 12px; }
+
+    @media (max-width: 480px) {
+      header { padding: 15px; }
+      .status { font-size: 10px; }
+      h1 { font-size: 20px; }
+      button { padding: 0 13px; }
+      .welcome { margin: 12px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">J</div>
+    <div>
+      <h1>JARVIS</h1>
+      <div class="subtitle">ASISTENTE PERSONAL INTELIGENTE</div>
+    </div>
+    <div class="status">● Sistema conectado</div>
+  </header>
+
+  <main>
+    <section class="welcome" id="welcome">
+      <div class="orb">✧</div>
+      <h2>¿En qué puedo ayudarte?</h2>
+      <p>Estoy listo para recibir tus instrucciones.</p>
+    </section>
+
+    <section id="messages" aria-live="polite"></section>
+
+    <form id="chat-form">
+      <input id="message" placeholder="Escribe un mensaje a JARVIS..."
+             autocomplete="off" required maxlength="4000">
+      <button id="send" type="submit">Enviar ➤</button>
+    </form>
+    <p id="hint">JARVIS puede cometer errores. Verifica la información importante.</p>
+  </main>
+
+  <footer>JARVIS · Interfaz personal</footer>
+
+  <script>
+    const API_URL = window.location.origin;
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("message");
+    const send = document.getElementById("send");
+    const messages = document.getElementById("messages");
+    const welcome = document.getElementById("welcome");
+
+    function addMessage(text, who) {
+      const el = document.createElement("div");
+      el.className = "message " + who;
+      el.textContent = text;
+      messages.appendChild(el);
+      messages.scrollTop = messages.scrollHeight;
+      return el;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      const key = sessionStorage.getItem("jarvis_access_key");
+      if (!key) {
+        const entered = prompt("Introduce tu clave privada JARVIS_ACCESS_KEY:");
+        if (!entered) return;
+        sessionStorage.setItem("jarvis_access_key", entered);
+      }
+
+      const accessKey = sessionStorage.getItem("jarvis_access_key");
+      welcome.style.display = "none";
+      addMessage(message, "user");
+      input.value = "";
+      send.disabled = true;
+      send.textContent = "...";
+      const loading = addMessage("JARVIS está pensando...", "jarvis");
+
+      try {
+        const response = await fetch(API_URL + "/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-jarvis-key": accessKey
+          },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        loading.remove();
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            sessionStorage.removeItem("jarvis_access_key");
+            throw new Error("Clave incorrecta. Recarga la página e inténtalo otra vez.");
+          }
+          throw new Error(data.detail || "No se pudo obtener una respuesta.");
+        }
+
+        addMessage(data.reply || "No recibí una respuesta.", "jarvis");
+      } catch (error) {
+        loading.textContent = "Error: " + error.message;
+      } finally {
+        send.disabled = false;
+        send.textContent = "Enviar ➤";
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
