@@ -1,9 +1,11 @@
 
 import os
 import secrets
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="JARVIS")
@@ -12,18 +14,22 @@ OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 JARVIS_ACCESS_KEY = os.getenv("JARVIS_ACCESS_KEY", "")
 OLLAMA_URL = "https://ollama.com/api/chat"
 
+BASE_DIR = Path(__file__).resolve().parent
+INDEX_FILE = BASE_DIR / "static" / "index.html"
+
 
 class ChatRequest(BaseModel):
     message: str
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def home():
-    return {
-        "assistant": "JARVIS",
-        "status": "online",
-        "message": "Hola. JARVIS está funcionando."
-    }
+    if not INDEX_FILE.is_file():
+        raise HTTPException(
+            status_code=500,
+            detail="No se encontró static/index.html"
+        )
+    return FileResponse(INDEX_FILE)
 
 
 @app.get("/health")
@@ -39,7 +45,10 @@ async def chat(
     if not JARVIS_ACCESS_KEY or not secrets.compare_digest(
         x_jarvis_key, JARVIS_ACCESS_KEY
     ):
-        raise HTTPException(status_code=401, detail="Clave de acceso incorrecta")
+        raise HTTPException(
+            status_code=401,
+            detail="Clave de acceso incorrecta"
+        )
 
     if not OLLAMA_API_KEY:
         raise HTTPException(
@@ -49,7 +58,10 @@ async def chat(
 
     message = request.message.strip()
     if not message:
-        raise HTTPException(status_code=400, detail="Escribe un mensaje")
+        raise HTTPException(
+            status_code=400,
+            detail="Escribe un mensaje"
+        )
 
     try:
         async with httpx.AsyncClient(timeout=90) as client:
@@ -78,7 +90,8 @@ async def chat(
         if response.is_error:
             raise HTTPException(
                 status_code=502,
-                detail="El servicio de IA devolvió un error. Revisa la API de Ollama."
+                detail="El servicio de IA devolvió un error. "
+                       "Revisa la API de Ollama."
             )
 
         data = response.json()
